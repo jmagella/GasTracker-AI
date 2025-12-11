@@ -137,6 +137,7 @@ export const parseCSV = (csvText: string): Omit<FuelLog, 'id'>[] => {
 
 export const calculateMPG = (current: FuelLog, previous: FuelLog): number | null => {
   if (current.odometer <= previous.odometer) return null;
+  if (current.gallons <= 0) return null;
   const distance = current.odometer - previous.odometer;
   return distance / current.gallons;
 };

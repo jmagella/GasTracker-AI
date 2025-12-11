@@ -127,8 +127,13 @@ const FuelHistory: React.FC<FuelHistoryProps> = ({ logs, onDelete, onUpdate, onI
   const [editingLog, setEditingLog] = useState<FuelLog | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Sort logs by date descending
-  const sortedLogs = [...logs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  // Sort logs by date descending, then by odometer descending to ensure stability
+  const sortedLogs = [...logs].sort((a, b) => {
+    const timeA = new Date(a.date).getTime();
+    const timeB = new Date(b.date).getTime();
+    if (timeA !== timeB) return timeB - timeA;
+    return b.odometer - a.odometer;
+  });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -173,13 +178,13 @@ const FuelHistory: React.FC<FuelHistoryProps> = ({ logs, onDelete, onUpdate, onI
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
               title="Import CSV"
             >
-              <Upload className="w-4 h-4" />
+              <Download className="w-4 h-4" /> {/* Swapped Icon */}
             </button>
             <button
               onClick={() => exportToCSV(logs)}
               className="flex items-center gap-2 px-3 py-1.5 bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 border border-brand-100 dark:border-brand-900/30 text-sm font-medium rounded-lg hover:bg-brand-100 dark:hover:bg-brand-900/40 transition-colors shadow-sm"
             >
-              <Download className="w-4 h-4" />
+              <Upload className="w-4 h-4" /> {/* Swapped Icon */}
               CSV
             </button>
           </div>
@@ -193,7 +198,6 @@ const FuelHistory: React.FC<FuelHistoryProps> = ({ logs, onDelete, onUpdate, onI
         ) : (
           <div className="space-y-3">
             {sortedLogs.map((log, index) => {
-               // Calculate MPG logic...
                const prevLog = sortedLogs[index + 1];
                const mpg = prevLog ? calculateMPG(log, prevLog) : null;
                

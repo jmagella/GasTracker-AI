@@ -10,7 +10,13 @@ interface FuelStatsProps {
 
 const FuelStats: React.FC<FuelStatsProps> = ({ logs }) => {
   const sortedLogs = useMemo(() => {
-    return [...logs].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    // Sort Ascending (Oldest first)
+    return [...logs].sort((a, b) => {
+      const timeA = new Date(a.date).getTime();
+      const timeB = new Date(b.date).getTime();
+      if (timeA !== timeB) return timeA - timeB;
+      return a.odometer - b.odometer; // If same time, lower odometer comes first
+    });
   }, [logs]);
 
   const chartData = useMemo(() => {
