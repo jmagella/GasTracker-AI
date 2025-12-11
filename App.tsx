@@ -11,11 +11,43 @@ import { Fuel, ArrowRight, Key } from 'lucide-react';
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>(Tab.ENTRY);
-  const [logs, setLogs] = useState<FuelLog[]>([]);
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+  
+  // Lazy initialize logs to ensure we read from localStorage before first render
+  const [logs, setLogs] = useState<FuelLog[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('fuelLogs');
+      try {
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        console.error("Failed to parse logs", e);
+        return [];
+      }
+    }
+    return [];
+  });
+
+  // Lazy initialize theme
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme === 'dark') return true;
+      if (savedTheme === 'light') return false;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
+
+  // Lazy initialize color
+  const [themeColor, setThemeColor] = useState<ThemeColor>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('themeColor');
+      return (saved as ThemeColor) || 'blue';
+    }
+    return 'blue';
+  });
+
   const [isKeySet, setIsKeySet] = useState<boolean>(false);
   const [isCheckingKey, setIsCheckingKey] = useState<boolean>(true);
-  const [themeColor, setThemeColor] = useState<ThemeColor>('blue');
   
   // Settings State
   const [showSettings, setShowSettings] = useState(false);
@@ -52,6 +84,9 @@ function App() {
 
   useEffect(() => {
     checkKey();
+    // Apply initial theme settings
+    if (isDarkMode) document.documentElement.classList.add('dark');
+    applyThemeColor(themeColor);
   }, []);
 
   const handleConnectAIStudio = async () => {
@@ -77,36 +112,12 @@ function App() {
     }
   };
 
-  // Load data and theme on mount
-  useEffect(() => {
-    const savedLogs = localStorage.getItem('fuelLogs');
-    if (savedLogs) {
-      try {
-        setLogs(JSON.parse(savedLogs));
-      } catch (e) {
-        console.error("Failed to parse logs", e);
-      }
-    }
-
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      setIsDarkMode(true);
-      document.documentElement.classList.add('dark');
-    }
-
-    const savedColor = localStorage.getItem('themeColor');
-    if (savedColor) {
-      setThemeColor(savedColor as ThemeColor);
-      applyThemeColor(savedColor);
-    }
-  }, []);
-
-  // Persist logs
+  // Persist logs whenever they change
   useEffect(() => {
     localStorage.setItem('fuelLogs', JSON.stringify(logs));
   }, [logs]);
 
-  // Persist theme
+  // Persist theme whenever it changes
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
@@ -230,7 +241,7 @@ function App() {
     <div className="fixed inset-0 h-[100dvh] w-full flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-200 overflow-hidden">
       <Header onOpenSettings={() => setShowSettings(true)} />
       
-      <main className="flex-1 overflow-y-auto overflow-x-hidden relative w-full pt-4 pb-4">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden relative w-full pt-4 pb-4 no-scrollbar">
         {activeTab === Tab.ENTRY && <FuelEntry onAddLog={addLog} />}
         {activeTab === Tab.HISTORY && <FuelHistory logs={logs} onDelete={deleteLog} />}
         {activeTab === Tab.STATS && <FuelStats logs={logs} />}

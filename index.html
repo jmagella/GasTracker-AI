@@ -45,6 +45,14 @@
         overflow: hidden; /* Prevent body scroll */
         overscroll-behavior: none; /* No bounce */
       }
+      /* Utility to hide scrollbar */
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;  /* IE and Edge */
+        scrollbar-width: none;  /* Firefox */
+      }
     </style>
   <script type="importmap">
 {
