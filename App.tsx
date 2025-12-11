@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Navbar, { Header } from './components/Navbar';
 import FuelEntry from './components/FuelEntry';
 import FuelHistory from './components/FuelHistory';
@@ -53,6 +53,11 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [manualKey, setManualKey] = useState('');
   const [showManualEntry, setShowManualEntry] = useState(false);
+
+  // Swipe State
+  const touchStart = useRef<{x: number, y: number} | null>(null);
+  const touchEnd = useRef<{x: number, y: number} | null>(null);
+  const minSwipeDistance = 50;
 
   // Derive recent locations from logs
   const recentLocations = useMemo(() => {
@@ -180,6 +185,45 @@ function App() {
 
   const toggleTheme = () => setIsDarkMode(prev => !prev);
 
+  // Swipe Handlers
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchEnd.current = null; 
+    touchStart.current = {
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY
+    };
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    touchEnd.current = {
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY
+    };
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart.current || !touchEnd.current) return;
+    
+    const xDistance = touchStart.current.x - touchEnd.current.x;
+    const yDistance = touchStart.current.y - touchEnd.current.y;
+    const isLeftSwipe = xDistance > minSwipeDistance;
+    const isRightSwipe = xDistance < -minSwipeDistance;
+
+    // Ignore if vertical scroll was dominant
+    if (Math.abs(yDistance) > Math.abs(xDistance)) return;
+
+    const tabs = [Tab.ENTRY, Tab.HISTORY, Tab.STATS, Tab.MAP];
+    const currentIndex = tabs.indexOf(activeTab);
+
+    if (isLeftSwipe && currentIndex < tabs.length - 1) {
+      setActiveTab(tabs[currentIndex + 1]);
+    }
+
+    if (isRightSwipe && currentIndex > 0) {
+      setActiveTab(tabs[currentIndex - 1]);
+    }
+  };
+
   if (isCheckingKey) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -211,7 +255,6 @@ function App() {
           <div className="space-y-4">
             {!showManualEntry ? (
               <>
-                 {/* Only show "Connect Google" if we suspect we are in an environment that supports it, or as a primary option */}
                 <button 
                   onClick={handleConnectAIStudio}
                   className="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3.5 px-8 rounded-xl shadow-lg shadow-brand-500/30 transition-all flex items-center justify-center gap-2"
@@ -265,7 +308,12 @@ function App() {
     <div className="fixed inset-0 h-[100dvh] w-full flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-200 overflow-hidden">
       <Header onOpenSettings={() => setShowSettings(true)} />
       
-      <main className="flex-1 overflow-y-auto overflow-x-hidden relative w-full pt-4 pb-4 no-scrollbar">
+      <main 
+        className={`flex-1 overflow-x-hidden relative w-full pt-4 pb-4 no-scrollbar ${activeTab === Tab.ENTRY ? 'overflow-y-hidden' : 'overflow-y-auto'}`}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
         {activeTab === Tab.ENTRY && <FuelEntry onAddLog={addLog} recentLocations={recentLocations} />}
         {activeTab === Tab.HISTORY && 
           <FuelHistory 

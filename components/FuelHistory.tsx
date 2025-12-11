@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Download, Upload, Trash2, MapPin, Edit2, X, Save } from 'lucide-react';
+import { Download, Upload, Trash2, MapPin, Edit2, X, Save, Sun, Cloud, CloudRain, Snowflake, CloudLightning, Thermometer } from 'lucide-react';
 import { FuelLog } from '../types';
 import { exportToCSV, calculateMPG, parseCSV } from '../utils';
 
@@ -9,6 +9,26 @@ interface FuelHistoryProps {
   onUpdate: (log: FuelLog) => void;
   onImport: (logs: Omit<FuelLog, 'id'>[]) => void;
 }
+
+const WeatherIcon = ({ code, className }: { code: number; className?: string }) => {
+  // WMO Weather interpretation codes (WW)
+  // 0: Clear sky
+  if (code === 0) return <Sun className={className} />;
+  // 1, 2, 3: Mainly clear, partly cloudy, and overcast
+  if (code >= 1 && code <= 3) return <Cloud className={className} />;
+  // 45, 48: Fog
+  if (code === 45 || code === 48) return <Cloud className={className} />; // Using Cloud for Fog fallback
+  // 51-67: Drizzle and Rain
+  if (code >= 51 && code <= 67) return <CloudRain className={className} />;
+  // 71-77: Snow
+  if (code >= 71 && code <= 77) return <Snowflake className={className} />;
+  // 80-82: Rain showers
+  if (code >= 80 && code <= 82) return <CloudRain className={className} />;
+  // 95-99: Thunderstorm
+  if (code >= 95 && code <= 99) return <CloudLightning className={className} />;
+  
+  return <Cloud className={className} />; // Default
+};
 
 const EditModal = ({ log, onClose, onSave }: { log: FuelLog, onClose: () => void, onSave: (l: FuelLog) => void }) => {
   // Convert ISO date to local date string for input[type="datetime-local"]
@@ -178,13 +198,13 @@ const FuelHistory: React.FC<FuelHistoryProps> = ({ logs, onDelete, onUpdate, onI
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
               title="Import CSV"
             >
-              <Download className="w-4 h-4" /> {/* Swapped Icon */}
+              <Download className="w-4 h-4" />
             </button>
             <button
               onClick={() => exportToCSV(logs)}
               className="flex items-center gap-2 px-3 py-1.5 bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 border border-brand-100 dark:border-brand-900/30 text-sm font-medium rounded-lg hover:bg-brand-100 dark:hover:bg-brand-900/40 transition-colors shadow-sm"
             >
-              <Upload className="w-4 h-4" /> {/* Swapped Icon */}
+              <Upload className="w-4 h-4" />
               CSV
             </button>
           </div>
@@ -200,56 +220,73 @@ const FuelHistory: React.FC<FuelHistoryProps> = ({ logs, onDelete, onUpdate, onI
             {sortedLogs.map((log, index) => {
                const prevLog = sortedLogs[index + 1];
                const mpg = prevLog ? calculateMPG(log, prevLog) : null;
-               
                const dateObj = new Date(log.date);
 
                return (
-                <div key={log.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-start group relative overflow-hidden">
-                  <div className="space-y-1 relative z-10">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-gray-900 dark:text-white">
-                        {mpg ? mpg.toFixed(1) : '-'} <span className="text-xs font-normal text-gray-500">MPG</span>
+                <div key={log.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center group relative overflow-hidden">
+                  
+                  {/* Left Side: BIG MPG and Details */}
+                  <div className="flex flex-col flex-1 min-w-0 pr-4">
+                    <div className="flex items-baseline gap-1.5 mb-1">
+                      <span className={`text-4xl font-black tracking-tight ${mpg ? 'text-brand-600 dark:text-brand-400' : 'text-gray-300 dark:text-gray-700'}`}>
+                        {mpg ? mpg.toFixed(1) : '-'}
                       </span>
-                      <span className="text-gray-300 dark:text-gray-600">|</span>
-                      <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                        ${log.totalCost.toFixed(2)}
-                      </span>
+                      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">MPG</span>
                     </div>
-                    
-                    <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-col gap-0.5">
-                      <span>
-                        {dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                        <span className="mx-1.5 opacity-50">|</span>
-                        {dateObj.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
-                      </span>
-                      <span>{log.gallons} gal @ ${log.pricePerGallon.toFixed(3)} / gal</span>
-                      <span>Odo: {log.odometer.toLocaleString()}</span>
-                      {log.location && (
-                        <span className="flex items-center gap-1 mt-1 text-brand-600 dark:text-brand-400">
-                          <MapPin className="w-3 h-3" /> {log.location}
-                        </span>
-                      )}
+
+                    <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-col gap-0.5 truncate">
+                       <div className="flex items-center gap-2 text-gray-800 dark:text-gray-200 font-medium">
+                         <span>{dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                         <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                         <span>{dateObj.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</span>
+                       </div>
+                       
+                       <div className="flex items-center gap-2 truncate">
+                         {log.location && (
+                            <span className="flex items-center gap-1 text-brand-600 dark:text-brand-400 truncate max-w-[120px]">
+                              <MapPin className="w-3 h-3 shrink-0" /> <span className="truncate">{log.location}</span>
+                            </span>
+                          )}
+                          {log.weatherTemp !== undefined && (
+                             <div className="flex items-center gap-1 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50 px-1.5 py-0.5 rounded shrink-0">
+                               {log.weatherCode !== undefined ? (
+                                 <WeatherIcon code={log.weatherCode} className="w-3 h-3" />
+                               ) : (
+                                 <Thermometer className="w-3 h-3" />
+                               )}
+                               <span>{log.weatherTemp}°F</span>
+                             </div>
+                          )}
+                       </div>
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-2 relative z-10 pl-2">
-                    <button
-                      onClick={() => setEditingLog(log)}
-                      className="p-2 text-gray-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/30 rounded-lg transition-all"
-                      aria-label="Edit"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        if(window.confirm('Delete this entry?')) onDelete(log.id);
-                      }}
-                      className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all"
-                      aria-label="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  {/* Right Side: Cost and Actions */}
+                  <div className="flex flex-col items-end gap-3">
+                    <span className="text-xl font-bold text-gray-800 dark:text-white">
+                      ${log.totalCost.toFixed(2)}
+                    </span>
+                    
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => setEditingLog(log)}
+                        className="p-2 text-gray-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/30 rounded-lg transition-all"
+                        aria-label="Edit"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if(window.confirm('Delete this entry?')) onDelete(log.id);
+                        }}
+                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all"
+                        aria-label="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
+
                 </div>
               );
             })}
