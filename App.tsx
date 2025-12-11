@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Navbar, { Header } from './components/Navbar';
 import FuelEntry from './components/FuelEntry';
 import FuelHistory from './components/FuelHistory';
@@ -53,6 +53,21 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [manualKey, setManualKey] = useState('');
   const [showManualEntry, setShowManualEntry] = useState(false);
+
+  // Derive recent locations from logs
+  const recentLocations = useMemo(() => {
+    const unique = new Set<string>();
+    const recent: string[] = [];
+    // Iterate backwards for most recent
+    for (let i = logs.length - 1; i >= 0; i--) {
+      const loc = logs[i].location;
+      if (loc && loc !== 'Other' && !unique.has(loc)) {
+        unique.add(loc);
+        recent.push(loc);
+      }
+    }
+    return recent.slice(0, 5);
+  }, [logs]);
 
   const checkKey = async () => {
     setIsCheckingKey(true);
@@ -141,6 +156,11 @@ function App() {
     };
     setLogs(prev => [...prev, newLog]);
     setActiveTab(Tab.HISTORY);
+  };
+
+  const handleImportLogs = (importedLogs: Omit<FuelLog, 'id'>[]) => {
+    const newLogs = importedLogs.map(l => ({ ...l, id: crypto.randomUUID() }));
+    setLogs(prev => [...prev, ...newLogs]);
   };
 
   const updateLog = (updatedLog: FuelLog) => {
@@ -246,8 +266,14 @@ function App() {
       <Header onOpenSettings={() => setShowSettings(true)} />
       
       <main className="flex-1 overflow-y-auto overflow-x-hidden relative w-full pt-4 pb-4 no-scrollbar">
-        {activeTab === Tab.ENTRY && <FuelEntry onAddLog={addLog} />}
-        {activeTab === Tab.HISTORY && <FuelHistory logs={logs} onDelete={deleteLog} onUpdate={updateLog} />}
+        {activeTab === Tab.ENTRY && <FuelEntry onAddLog={addLog} recentLocations={recentLocations} />}
+        {activeTab === Tab.HISTORY && 
+          <FuelHistory 
+            logs={logs} 
+            onDelete={deleteLog} 
+            onUpdate={updateLog} 
+            onImport={handleImportLogs} 
+          />}
         {activeTab === Tab.STATS && <FuelStats logs={logs} />}
         {activeTab === Tab.MAP && <FuelMap logs={logs} />}
       </main>

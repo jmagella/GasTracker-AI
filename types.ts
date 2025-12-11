@@ -27,6 +27,8 @@ export interface ScanResult {
   gallons: number | null;
   pricePerGallon: number | null;
   totalCost: number | null;
+  imageType?: 'pump' | 'odometer' | 'unknown';
+  confidence?: number;
 }
 
 export type ThemeColor = 'blue' | 'green' | 'orange' | 'purple' | 'red';

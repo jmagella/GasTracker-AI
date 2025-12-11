@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
-import { Download, Trash2, MapPin, Edit2, X, Save } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Download, Upload, Trash2, MapPin, Edit2, X, Save } from 'lucide-react';
 import { FuelLog } from '../types';
-import { exportToCSV, calculateMPG } from '../utils';
+import { exportToCSV, calculateMPG, parseCSV } from '../utils';
 
 interface FuelHistoryProps {
   logs: FuelLog[];
   onDelete: (id: string) => void;
   onUpdate: (log: FuelLog) => void;
+  onImport: (logs: Omit<FuelLog, 'id'>[]) => void;
 }
 
 const EditModal = ({ log, onClose, onSave }: { log: FuelLog, onClose: () => void, onSave: (l: FuelLog) => void }) => {
@@ -122,24 +123,66 @@ const EditModal = ({ log, onClose, onSave }: { log: FuelLog, onClose: () => void
   );
 };
 
-const FuelHistory: React.FC<FuelHistoryProps> = ({ logs, onDelete, onUpdate }) => {
+const FuelHistory: React.FC<FuelHistoryProps> = ({ logs, onDelete, onUpdate, onImport }) => {
   const [editingLog, setEditingLog] = useState<FuelLog | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sort logs by date descending
   const sortedLogs = [...logs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      try {
+        const importedLogs = parseCSV(text);
+        if (importedLogs.length > 0) {
+          onImport(importedLogs);
+          alert(`Successfully imported ${importedLogs.length} entries.`);
+        } else {
+          alert('No valid entries found in CSV.');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Failed to parse CSV file.');
+      }
+    };
+    reader.readAsText(file);
+    // Reset
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   return (
     <>
       <div className="max-w-md mx-auto p-4 space-y-4">
         <div className="flex justify-between items-center mb-2">
           <h2 className="text-xl font-bold text-gray-800 dark:text-white">History ({logs.length})</h2>
-          <button
-            onClick={() => exportToCSV(logs)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-brand-600 dark:text-brand-400 text-sm font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            CSV
-          </button>
+          <div className="flex gap-2">
+            <input 
+              type="file" 
+              accept=".csv" 
+              className="hidden" 
+              ref={fileInputRef} 
+              onChange={handleFileChange}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
+              title="Import CSV"
+            >
+              <Upload className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => exportToCSV(logs)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 border border-brand-100 dark:border-brand-900/30 text-sm font-medium rounded-lg hover:bg-brand-100 dark:hover:bg-brand-900/40 transition-colors shadow-sm"
+            >
+              <Download className="w-4 h-4" />
+              CSV
+            </button>
+          </div>
         </div>
 
         {sortedLogs.length === 0 ? (

@@ -4,10 +4,19 @@ import { ScanResult } from '../types';
 const scanSchema: Schema = {
   type: Type.OBJECT,
   properties: {
-    odometer: { type: Type.NUMBER, description: "Vehicle odometer reading (mileage)" },
-    gallons: { type: Type.NUMBER, description: "Fuel volume in gallons" },
-    pricePerGallon: { type: Type.NUMBER, description: "Price per single gallon" },
-    totalCost: { type: Type.NUMBER, description: "Total transaction cost" },
+    imageType: {
+      type: Type.STRING,
+      enum: ["pump", "odometer", "unknown"],
+      description: "Classify the image as a gas pump display, vehicle odometer, or unknown."
+    },
+    confidence: {
+      type: Type.NUMBER,
+      description: "Confidence score between 0 and 1 indicating how certain the model is about the extracted values."
+    },
+    odometer: { type: Type.NUMBER, description: "Vehicle odometer reading (mileage). Only if imageType is odometer." },
+    gallons: { type: Type.NUMBER, description: "Fuel volume in gallons. Only if imageType is pump." },
+    pricePerGallon: { type: Type.NUMBER, description: "Price per single gallon. Only if imageType is pump." },
+    totalCost: { type: Type.NUMBER, description: "Total transaction cost. Only if imageType is pump." },
   },
 };
 
@@ -45,7 +54,7 @@ export const analyzeImage = async (base64Image: string, mimeType: string): Promi
             },
           },
           {
-            text: "Analyze this image. It is likely a gas pump display or a car odometer dashboard. Extract any visible numbers related to: Odometer reading, Gallons fueled, Price per gallon, or Total Cost. If a value is clearly not present, return null for that field.",
+            text: "Analyze this image. First, determine if it is a 'pump' (gas station pump display) or an 'odometer' (car dashboard). Then extract the visible numbers relevant to that type. For a pump, extract gallons, price per gallon, and total cost. For an odometer, extract the total mileage. Return a confidence score (0.0 to 1.0) based on legibility.",
           },
         ],
       },
@@ -57,7 +66,7 @@ export const analyzeImage = async (base64Image: string, mimeType: string): Promi
     });
 
     const text = response.text;
-    if (!text) return { odometer: null, gallons: null, pricePerGallon: null, totalCost: null };
+    if (!text) return { odometer: null, gallons: null, pricePerGallon: null, totalCost: null, imageType: 'unknown', confidence: 0 };
     
     return JSON.parse(text) as ScanResult;
   } catch (error) {

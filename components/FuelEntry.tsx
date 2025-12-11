@@ -1,28 +1,40 @@
-import React, { useState, useRef } from 'react';
-import { Camera, MapPin, Loader2, Save, Scan, Gauge, Droplet, DollarSign, Receipt } from 'lucide-react';
+import React, { useState, useRef, useMemo } from 'react';
+import { Camera, MapPin, Loader2, Save, Scan, Gauge, Droplet, DollarSign, Receipt, AlertTriangle, CheckCircle, RefreshCw, Globe, Crosshair } from 'lucide-react';
 import { FuelLog } from '../types';
 import { analyzeImage } from '../services/geminiService';
 import { compressImage } from '../utils';
 
 interface FuelEntryProps {
   onAddLog: (log: Omit<FuelLog, 'id'>) => void;
+  recentLocations: string[];
 }
 
-const STATION_OPTIONS = ['Sunoco', 'Stewarts', 'Other'];
+const DEFAULT_STATIONS = ['Shell', 'Exxon', 'Mobil', 'BP', 'Costco', 'Sunoco', 'Wawa', '7-Eleven', 'Sheetz', 'Pilot', 'Loves'];
 
-const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog }) => {
+const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog, recentLocations }) => {
   const [odometer, setOdometer] = useState<string>('');
   const [gallons, setGallons] = useState<string>('');
   const [pricePerGallon, setPricePerGallon] = useState<string>('');
   const [totalCost, setTotalCost] = useState<string>('');
   
   // Location state
-  const [stationType, setStationType] = useState<string>(STATION_OPTIONS[0]);
+  const combinedOptions = useMemo(() => {
+    const unique = Array.from(new Set([...recentLocations, ...DEFAULT_STATIONS]));
+    return [...unique.sort(), 'Other'];
+  }, [recentLocations]);
+
+  const [stationType, setStationType] = useState<string>(combinedOptions[0]);
   const [customLocation, setCustomLocation] = useState<string>('');
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   
+  // Coordinates
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [showManualCoords, setShowManualCoords] = useState(false);
+  const [manualLat, setManualLat] = useState('');
+  const [manualLng, setManualLng] = useState('');
+
   const [isScanning, setIsScanning] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [scanFeedback, setScanFeedback] = useState<{type: string, confidence: number, message: string} | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -31,21 +43,40 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog }) => {
     if (!file) return;
 
     setIsScanning(true);
+    setScanFeedback(null); // Clear previous feedback
     try {
       // Compress image before sending to avoid payload size issues
       const base64 = await compressImage(file);
       // We force jpeg mimeType because compressImage outputs jpeg
       const result = await analyzeImage(base64, 'image/jpeg');
       
-      if (result.odometer) setOdometer(result.odometer.toString());
-      if (result.gallons) setGallons(result.gallons.toString());
-      if (result.pricePerGallon) setPricePerGallon(result.pricePerGallon.toString());
-      if (result.totalCost) setTotalCost(result.totalCost.toString());
+      const type = result.imageType || 'unknown';
+      const conf = result.confidence || 0;
       
-      // Auto-calculate missing fields if possible
-      if (result.totalCost && result.gallons && !result.pricePerGallon) {
-        setPricePerGallon((result.totalCost / result.gallons).toFixed(3));
+      let message = '';
+      if (type === 'pump') {
+         message = 'Detected Gas Pump';
+         if (result.gallons) setGallons(result.gallons.toString());
+         if (result.pricePerGallon) setPricePerGallon(result.pricePerGallon.toString());
+         if (result.totalCost) setTotalCost(result.totalCost.toString());
+         
+         // Auto-calculate missing fields if possible
+         if (result.totalCost && result.gallons && !result.pricePerGallon) {
+            setPricePerGallon((result.totalCost / result.gallons).toFixed(3));
+         }
+      } else if (type === 'odometer') {
+         message = 'Detected Odometer';
+         if (result.odometer) setOdometer(result.odometer.toString());
+      } else {
+         message = 'Could not clearly identify pump or odometer.';
       }
+
+      setScanFeedback({
+        type,
+        confidence: conf,
+        message
+      });
+
     } catch (error: any) {
       console.error("Scan failed:", error);
       const msg = error?.message || "Unknown error";
@@ -64,6 +95,9 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog }) => {
     }
 
     setIsLocating(true);
+    // Turn off manual mode if GPS is requested
+    setShowManualCoords(false);
+
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
@@ -78,6 +112,17 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog }) => {
     );
   };
 
+  const toggleManualCoords = () => {
+    const nextState = !showManualCoords;
+    setShowManualCoords(nextState);
+    
+    // If enabling manual mode and we have GPS coords, prefill them
+    if (nextState && coords && !manualLat && !manualLng) {
+      setManualLat(coords.lat.toFixed(6));
+      setManualLng(coords.lng.toFixed(6));
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!odometer || !gallons || !totalCost) {
@@ -86,6 +131,19 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog }) => {
     }
 
     const finalLocation = stationType === 'Other' ? customLocation : stationType;
+    
+    // Determine final coordinates
+    let finalLat = coords?.lat;
+    let finalLng = coords?.lng;
+
+    if (showManualCoords && manualLat && manualLng) {
+      const parsedLat = parseFloat(manualLat);
+      const parsedLng = parseFloat(manualLng);
+      if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+        finalLat = parsedLat;
+        finalLng = parsedLng;
+      }
+    }
     
     // Automatically use current time
     const now = new Date();
@@ -97,8 +155,8 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog }) => {
       pricePerGallon: parseFloat(pricePerGallon) || (parseFloat(totalCost) / parseFloat(gallons)),
       totalCost: parseFloat(totalCost),
       location: finalLocation,
-      latitude: coords?.lat,
-      longitude: coords?.lng
+      latitude: finalLat,
+      longitude: finalLng
     });
 
     // Reset fields
@@ -106,9 +164,13 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog }) => {
     setGallons('');
     setPricePerGallon('');
     setTotalCost('');
-    setStationType(STATION_OPTIONS[0]);
+    setStationType(combinedOptions[0]);
     setCustomLocation('');
     setCoords(null);
+    setManualLat('');
+    setManualLng('');
+    setShowManualCoords(false);
+    setScanFeedback(null);
   };
 
   return (
@@ -145,6 +207,37 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog }) => {
             </>
           )}
         </button>
+
+        {/* Scan Feedback UI */}
+        {scanFeedback && (
+          <div className={`mt-4 p-3 rounded-xl border flex items-start gap-3 animate-in fade-in slide-in-from-top-2 ${
+            scanFeedback.confidence > 0.7 
+              ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-800 dark:text-green-300'
+              : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300'
+          }`}>
+            {scanFeedback.confidence > 0.7 ? (
+              <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" />
+            ) : (
+              <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+            )}
+            <div className="flex-1">
+              <p className="font-medium text-sm">{scanFeedback.message}</p>
+              <p className="text-xs opacity-80 mt-1">
+                Confidence: {(scanFeedback.confidence * 100).toFixed(0)}%
+                {scanFeedback.confidence <= 0.7 && " - You may want to check values or rescan."}
+              </p>
+            </div>
+            {scanFeedback.confidence <= 0.7 && (
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="p-1.5 bg-white/50 hover:bg-white/80 dark:bg-black/20 dark:hover:bg-black/40 rounded-lg transition-colors"
+                title="Rescan"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 space-y-4">
@@ -152,8 +245,6 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog }) => {
           <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Details</h2>
         </div>
 
-        {/* Date/Time is now automatic, removed input field */}
-        
         <div>
           <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-2">
             <Gauge className="w-4 h-4" /> Odometer (mi)
@@ -221,7 +312,7 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog }) => {
                 onChange={(e) => setStationType(e.target.value)}
                 className="flex-1 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all dark:text-white appearance-none"
               >
-                {STATION_OPTIONS.map(opt => (
+                {combinedOptions.map(opt => (
                   <option key={opt} value={opt}>{opt}</option>
                 ))}
               </select>
@@ -230,12 +321,43 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog }) => {
                 type="button"
                 onClick={getLocation}
                 disabled={isLocating}
-                className="p-3 bg-brand-100 dark:bg-brand-900 text-brand-600 dark:text-brand-400 rounded-xl hover:bg-brand-200 dark:hover:bg-brand-800 transition-colors flex items-center gap-1 min-w-[100px] justify-center"
+                className="p-3 bg-brand-100 dark:bg-brand-900 text-brand-600 dark:text-brand-400 rounded-xl hover:bg-brand-200 dark:hover:bg-brand-800 transition-colors flex items-center gap-1 min-w-[70px] justify-center"
+                title="Use GPS"
               >
-                {isLocating ? <Loader2 className="animate-spin w-4 h-4" /> : <MapPin className="w-4 h-4" />}
-                <span className="text-xs font-semibold">{coords ? 'Updated' : 'GPS'}</span>
+                {isLocating ? <Loader2 className="animate-spin w-5 h-5" /> : <Crosshair className="w-5 h-5" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={toggleManualCoords}
+                className={`p-3 rounded-xl transition-colors flex items-center justify-center min-w-[50px] ${showManualCoords ? 'bg-brand-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}
+                title="Enter Coordinates Manually"
+              >
+                <Globe className="w-5 h-5" />
               </button>
             </div>
+            
+            {/* Manual Coordinates Input */}
+            {showManualCoords && (
+               <div className="flex gap-2 animate-in slide-in-from-top-2">
+                 <input 
+                   type="number"
+                   step="any"
+                   placeholder="Latitude"
+                   value={manualLat}
+                   onChange={e => setManualLat(e.target.value)}
+                   className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none dark:text-white text-sm"
+                 />
+                 <input 
+                   type="number"
+                   step="any"
+                   placeholder="Longitude"
+                   value={manualLng}
+                   onChange={e => setManualLng(e.target.value)}
+                   className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none dark:text-white text-sm"
+                 />
+               </div>
+            )}
             
             {stationType === 'Other' && (
               <input

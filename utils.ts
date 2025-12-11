@@ -81,6 +81,60 @@ export const exportToCSV = (logs: FuelLog[]) => {
   }
 };
 
+export const parseCSV = (csvText: string): Omit<FuelLog, 'id'>[] => {
+  const lines = csvText.split(/\r?\n/);
+  // Expect headers on first line
+  if (lines.length < 2) return [];
+
+  const results: Omit<FuelLog, 'id'>[] = [];
+
+  // Robust split function to handle commas inside quotes
+  const splitCSVLine = (line: string) => {
+    // Matches fields in quotes OR fields without commas
+    const pattern = /(".*?"|[^",]+)(?=\s*,|\s*$)/g;
+    return line.match(pattern)?.map(v => v.replace(/^"|"$/g, '').trim()) || [];
+  };
+
+  // Start from 1 to skip header
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    const cols = splitCSVLine(line);
+    // Basic validation: Must have at least Odometer, Gallons, Cost (cols 1, 2, 4 based on export format)
+    // Export format: Date, Odometer, Gallons, Price/Gal, Total Cost, Location, Lat, Lng
+    if (cols.length < 5) continue;
+
+    const dateStr = cols[0];
+    const odometer = parseFloat(cols[1]);
+    const gallons = parseFloat(cols[2]);
+    const pricePerGallon = parseFloat(cols[3]);
+    const totalCost = parseFloat(cols[4]);
+    const location = cols[5] || '';
+    const latitude = cols[6] ? parseFloat(cols[6]) : undefined;
+    const longitude = cols[7] ? parseFloat(cols[7]) : undefined;
+
+    // Validate numbers
+    if (isNaN(odometer) || isNaN(gallons) || isNaN(totalCost)) continue;
+    
+    // Attempt to parse date, fallback to now if invalid
+    let date = new Date(dateStr).toISOString();
+    if(date === 'Invalid Date') date = new Date().toISOString();
+
+    results.push({
+      date,
+      odometer,
+      gallons,
+      pricePerGallon: isNaN(pricePerGallon) ? (totalCost/gallons) : pricePerGallon,
+      totalCost,
+      location,
+      latitude,
+      longitude
+    });
+  }
+  return results;
+};
+
 export const calculateMPG = (current: FuelLog, previous: FuelLog): number | null => {
   if (current.odometer <= previous.odometer) return null;
   const distance = current.odometer - previous.odometer;
