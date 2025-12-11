@@ -11,9 +11,27 @@ const scanSchema: Schema = {
   },
 };
 
+const getApiKey = (): string => {
+  // 1. Check environment variable (Build time / Server)
+  if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+    return process.env.API_KEY;
+  }
+  // 2. Check Local Storage (User entered)
+  const storedKey = localStorage.getItem('gemini_api_key');
+  if (storedKey) return storedKey;
+
+  return '';
+};
+
 export const analyzeImage = async (base64Image: string, mimeType: string): Promise<ScanResult> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = getApiKey();
+    
+    if (!apiKey) {
+      throw new Error("API Key missing. Please go to Settings and enter your Gemini API Key.");
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
     const model = 'gemini-2.5-flash';
     
     const response = await ai.models.generateContent({

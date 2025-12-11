@@ -1,5 +1,5 @@
 import React from 'react';
-import { Moon, Sun, Fuel, Map, PlusCircle, History, BarChart3 } from 'lucide-react';
+import { Moon, Sun, Fuel, Map, PlusCircle, History, BarChart3, Settings } from 'lucide-react';
 import { Tab } from '../types';
 
 interface NavbarProps {
@@ -9,7 +9,7 @@ interface NavbarProps {
   toggleTheme: () => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange, isDarkMode, toggleTheme }) => {
+const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange }) => {
   const navItems = [
     { id: Tab.ENTRY, label: 'Add Fuel', icon: PlusCircle },
     { id: Tab.HISTORY, label: 'History', icon: History },
@@ -39,7 +39,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange, isDarkMode, to
   );
 };
 
-export const Header: React.FC<{ isDarkMode: boolean; toggleTheme: () => void }> = ({ isDarkMode, toggleTheme }) => (
+export const Header: React.FC<{ onOpenSettings: () => void }> = ({ onOpenSettings }) => (
   <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex justify-between items-center">
     <div className="flex items-center gap-2">
       <div className="bg-brand-500 p-1.5 rounded-lg text-white">
@@ -50,11 +50,11 @@ export const Header: React.FC<{ isDarkMode: boolean; toggleTheme: () => void }> 
       </h1>
     </div>
     <button
-      onClick={toggleTheme}
+      onClick={onOpenSettings}
       className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-300"
-      aria-label="Toggle Dark Mode"
+      aria-label="Open Settings"
     >
-      {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+      <Settings size={22} />
     </button>
   </header>
 );

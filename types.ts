@@ -28,3 +28,5 @@ export interface ScanResult {
   pricePerGallon: number | null;
   totalCost: number | null;
 }
+
+export type ThemeColor = 'blue' | 'green' | 'orange' | 'purple' | 'red';

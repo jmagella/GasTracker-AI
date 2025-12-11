@@ -1,4 +1,4 @@
-import { FuelLog } from './types';
+import { FuelLog, ThemeColor } from './types';
 
 export const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -85,4 +85,27 @@ export const calculateMPG = (current: FuelLog, previous: FuelLog): number | null
   if (current.odometer <= previous.odometer) return null;
   const distance = current.odometer - previous.odometer;
   return distance / current.gallons;
+};
+
+// Theme Utilities
+export const colorPalettes: Record<ThemeColor, Record<number, string>> = {
+  blue: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 900: '#1e3a8a' },
+  green: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#22c55e', 600: '#16a34a', 700: '#15803d', 900: '#14532d' },
+  orange: { 50: '#fff7ed', 100: '#ffedd5', 500: '#f97316', 600: '#ea580c', 700: '#c2410c', 900: '#7c2d12' },
+  purple: { 50: '#faf5ff', 100: '#f3e8ff', 500: '#a855f7', 600: '#9333ea', 700: '#7e22ce', 900: '#581c87' },
+  red: { 50: '#fef2f2', 100: '#fee2e2', 500: '#ef4444', 600: '#dc2626', 700: '#b91c1c', 900: '#7f1d1d' },
+};
+
+export const applyThemeColor = (color: string) => {
+  const palette = colorPalettes[color as ThemeColor] || colorPalettes.blue;
+  const root = document.documentElement;
+  Object.entries(palette).forEach(([key, value]) => {
+    root.style.setProperty(`--brand-${key}`, value);
+  });
+  
+  // Also update meta theme-color
+  const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+  if (metaThemeColor) {
+    metaThemeColor.setAttribute('content', palette[500]);
+  }
 };
