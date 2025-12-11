@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Camera, MapPin, Loader2, Save, Scan, Gauge, Droplet, DollarSign, Receipt, CalendarClock } from 'lucide-react';
+import { Camera, MapPin, Loader2, Save, Scan, Gauge, Droplet, DollarSign, Receipt } from 'lucide-react';
 import { FuelLog } from '../types';
 import { analyzeImage } from '../services/geminiService';
 import { compressImage } from '../utils';
@@ -11,14 +11,6 @@ interface FuelEntryProps {
 const STATION_OPTIONS = ['Sunoco', 'Stewarts', 'Other'];
 
 const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog }) => {
-  // Initialize with local date time string for input[type="datetime-local"]
-  const [entryDate, setEntryDate] = useState<string>(() => {
-    const now = new Date();
-    // Adjust to local timezone offset to get correct string format yyyy-MM-ddThh:mm
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    return now.toISOString().slice(0, 16);
-  });
-
   const [odometer, setOdometer] = useState<string>('');
   const [gallons, setGallons] = useState<string>('');
   const [pricePerGallon, setPricePerGallon] = useState<string>('');
@@ -95,11 +87,11 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog }) => {
 
     const finalLocation = stationType === 'Other' ? customLocation : stationType;
     
-    // Convert local input time back to ISO object
-    const dateObj = new Date(entryDate);
+    // Automatically use current time
+    const now = new Date();
 
     onAddLog({
-      date: dateObj.toISOString(),
+      date: now.toISOString(),
       odometer: parseFloat(odometer),
       gallons: parseFloat(gallons),
       pricePerGallon: parseFloat(pricePerGallon) || (parseFloat(totalCost) / parseFloat(gallons)),
@@ -109,7 +101,7 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog }) => {
       longitude: coords?.lng
     });
 
-    // Reset fields but keep date as "now" for next entry logic (or just leave it)
+    // Reset fields
     setOdometer('');
     setGallons('');
     setPricePerGallon('');
@@ -117,11 +109,6 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog }) => {
     setStationType(STATION_OPTIONS[0]);
     setCustomLocation('');
     setCoords(null);
-    
-    // Reset date to current time
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    setEntryDate(now.toISOString().slice(0, 16));
   };
 
   return (
@@ -165,17 +152,7 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog }) => {
           <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Details</h2>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-2">
-            <CalendarClock className="w-4 h-4" /> Date & Time
-          </label>
-          <input
-            type="datetime-local"
-            value={entryDate}
-            onChange={(e) => setEntryDate(e.target.value)}
-            className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all dark:text-white"
-          />
-        </div>
+        {/* Date/Time is now automatic, removed input field */}
         
         <div>
           <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-2">
