@@ -2,19 +2,20 @@ import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts';
 import { FuelLog } from '../types';
 import { calculateMPG } from '../utils';
-import { TrendingUp, Wallet } from 'lucide-react';
+import { TrendingUp, Wallet, Activity } from 'lucide-react';
 
 interface FuelStatsProps {
   logs: FuelLog[];
 }
 
 const FuelStats: React.FC<FuelStatsProps> = ({ logs }) => {
+  const sortedLogs = useMemo(() => {
+    return [...logs].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [logs]);
+
   const chartData = useMemo(() => {
-    // Sort chronological ASC
-    const sorted = [...logs].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    
-    return sorted.map((log, index) => {
-      const prevLog = index > 0 ? sorted[index - 1] : null;
+    return sortedLogs.map((log, index) => {
+      const prevLog = index > 0 ? sortedLogs[index - 1] : null;
       const mpg = prevLog ? calculateMPG(log, prevLog) : null;
       
       return {
@@ -24,7 +25,7 @@ const FuelStats: React.FC<FuelStatsProps> = ({ logs }) => {
         price: log.pricePerGallon
       };
     }).filter(d => d.mpg !== null); // Remove first entry which has no MPG
-  }, [logs]);
+  }, [sortedLogs]);
 
   if (logs.length < 2) {
     return (
@@ -35,7 +36,15 @@ const FuelStats: React.FC<FuelStatsProps> = ({ logs }) => {
   }
 
   const avgMpg = chartData.reduce((acc, curr) => acc + (curr.mpg || 0), 0) / chartData.length;
-  const totalSpent = logs.reduce((acc, curr) => acc + curr.totalCost, 0);
+  
+  // Cost per Mile Calculation
+  // Total Cost / Total Miles (Max Odometer - Min Odometer)
+  const minOdometer = sortedLogs[0].odometer;
+  const maxOdometer = sortedLogs[sortedLogs.length - 1].odometer;
+  const totalMiles = maxOdometer - minOdometer;
+  const totalCost = sortedLogs.reduce((acc, curr) => acc + curr.totalCost, 0);
+  
+  const costPerMile = totalMiles > 0 ? totalCost / totalMiles : 0;
 
   return (
     <div className="max-w-md mx-auto p-4 space-y-6 pb-6">
@@ -49,9 +58,12 @@ const FuelStats: React.FC<FuelStatsProps> = ({ logs }) => {
         </div>
         <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
           <p className="text-gray-500 dark:text-gray-400 text-sm font-medium flex items-center gap-1.5">
-            <Wallet className="w-4 h-4" /> Total Spent
+            <Activity className="w-4 h-4" /> Cost / Mile
           </p>
-          <p className="text-3xl font-bold mt-1 text-gray-800 dark:text-white">${totalSpent.toFixed(0)}</p>
+          <p className="text-3xl font-bold mt-1 text-gray-800 dark:text-white">
+            ${costPerMile.toFixed(2)}
+            <span className="text-sm font-normal text-gray-400 ml-1">/mi</span>
+          </p>
         </div>
       </div>
 
@@ -74,8 +86,12 @@ const FuelStats: React.FC<FuelStatsProps> = ({ logs }) => {
                 tickLine={false}
             />
             <YAxis 
-                hide 
-                domain={['auto', 'auto']}
+                hide={false}
+                domain={[15, 35]}
+                tick={{fontSize: 10, fill: '#9ca3af'}}
+                axisLine={false}
+                tickLine={false}
+                width={25}
             />
             <Tooltip 
                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
@@ -105,8 +121,13 @@ const FuelStats: React.FC<FuelStatsProps> = ({ logs }) => {
                 tickLine={false}
             />
             <YAxis 
-                hide 
-                domain={['auto', 'auto']}
+                hide={false}
+                domain={[2, 8]}
+                tick={{fontSize: 10, fill: '#9ca3af'}}
+                tickFormatter={(val) => `$${val}`}
+                axisLine={false}
+                tickLine={false}
+                width={30}
             />
             <Tooltip 
                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}

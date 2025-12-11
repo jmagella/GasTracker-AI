@@ -9,7 +9,7 @@ interface FuelEntryProps {
   recentLocations: string[];
 }
 
-const DEFAULT_STATIONS = ['Shell', 'Exxon', 'Mobil', 'BP', 'Costco', 'Sunoco', 'Wawa', '7-Eleven', 'Sheetz', 'Pilot', 'Loves'];
+const DEFAULT_STATIONS = ['Sunoco', 'Stewarts'];
 
 const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog, recentLocations }) => {
   const [odometer, setOdometer] = useState<string>('');
@@ -19,8 +19,10 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog, recentLocations }) => {
   
   // Location state
   const combinedOptions = useMemo(() => {
-    const unique = Array.from(new Set([...recentLocations, ...DEFAULT_STATIONS]));
-    return [...unique.sort(), 'Other'];
+    // Filter out DEFAULT_STATIONS from recentLocations to avoid duplicates, then combine
+    const uniqueRecent = recentLocations.filter(loc => !DEFAULT_STATIONS.includes(loc));
+    // Order: Defaults first, then Recents, then Other
+    return [...DEFAULT_STATIONS, ...uniqueRecent, 'Other'];
   }, [recentLocations]);
 
   const [stationType, setStationType] = useState<string>(combinedOptions[0]);
