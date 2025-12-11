@@ -1,8 +1,6 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { ScanResult } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 const scanSchema: Schema = {
   type: Type.OBJECT,
   properties: {
@@ -15,6 +13,8 @@ const scanSchema: Schema = {
 
 export const analyzeImage = async (base64Image: string, mimeType: string): Promise<ScanResult> => {
   try {
+    // Initialize client here to prevent app crash on load if process.env is accessed prematurely
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const model = 'gemini-2.5-flash';
     
     const response = await ai.models.generateContent({
