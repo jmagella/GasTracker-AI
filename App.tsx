@@ -143,6 +143,10 @@ function App() {
     setActiveTab(Tab.HISTORY);
   };
 
+  const updateLog = (updatedLog: FuelLog) => {
+    setLogs(prev => prev.map(l => l.id === updatedLog.id ? updatedLog : l));
+  };
+
   const deleteLog = (id: string) => {
     setLogs(prev => prev.filter(l => l.id !== id));
   };
@@ -243,7 +247,7 @@ function App() {
       
       <main className="flex-1 overflow-y-auto overflow-x-hidden relative w-full pt-4 pb-4 no-scrollbar">
         {activeTab === Tab.ENTRY && <FuelEntry onAddLog={addLog} />}
-        {activeTab === Tab.HISTORY && <FuelHistory logs={logs} onDelete={deleteLog} />}
+        {activeTab === Tab.HISTORY && <FuelHistory logs={logs} onDelete={deleteLog} onUpdate={updateLog} />}
         {activeTab === Tab.STATS && <FuelStats logs={logs} />}
         {activeTab === Tab.MAP && <FuelMap logs={logs} />}
       </main>

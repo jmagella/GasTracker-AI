@@ -42,11 +42,18 @@ const FuelMap: React.FC<FuelMapProps> = ({ logs }) => {
     // Add markers
     validLogs.forEach(log => {
       const marker = window.L.marker([log.latitude, log.longitude]).addTo(map);
+      const dateStr = new Date(log.date).toLocaleString(undefined, { 
+        month: 'short', 
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+      
       marker.bindPopup(`
         <div class="p-1">
           <strong class="text-sm font-bold block">${log.location || 'Unknown Location'}</strong>
-          <span class="text-xs text-gray-600">${new Date(log.date).toLocaleDateString()}</span><br/>
-          <span class="text-xs">$${log.totalCost} - ${log.gallons} gal</span>
+          <span class="text-xs text-gray-600">${dateStr}</span><br/>
+          <span class="text-xs font-medium">$${log.totalCost} - ${log.gallons} gal</span>
         </div>
       `);
     });
