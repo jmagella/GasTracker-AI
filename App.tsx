@@ -17,20 +17,32 @@ function App() {
   // Check for API Key on mount
   useEffect(() => {
     const checkKey = async () => {
-      try {
-        if (window.aistudio) {
+      // Small delay to allow window.aistudio injection if we are in that environment
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      if (window.aistudio) {
+        try {
           const hasKey = await window.aistudio.hasSelectedApiKey();
           setIsKeySet(hasKey);
-        } else {
-          // If not in AI Studio, assume environment variables are set during build/deployment
-          setIsKeySet(true);
+        } catch (e) {
+          console.error("AI Studio key check failed:", e);
+          setIsKeySet(false);
         }
-      } catch (e) {
-        console.error("Error checking API key:", e);
-        setIsKeySet(true); // Fallback
-      } finally {
-        setIsCheckingKey(false);
+      } else {
+        // Not in AI Studio context (e.g., mobile browser or deployed app).
+        // Check if key is baked into environment variables.
+        let hasEnvKey = false;
+        try {
+          // Safe check for process.env
+          if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+            hasEnvKey = true;
+          }
+        } catch (e) {
+          // process not defined
+        }
+        setIsKeySet(hasEnvKey);
       }
+      setIsCheckingKey(false);
     };
     checkKey();
   }, []);
@@ -45,6 +57,8 @@ function App() {
         console.error("Failed to select key:", e);
         alert("Failed to select API key. Please try again.");
       }
+    } else {
+      alert("AI Studio integration not detected. If you are running this app outside of the AI Studio editor, please ensure the API_KEY environment variable is set in your build configuration.");
     }
   };
 
