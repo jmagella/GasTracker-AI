@@ -38,7 +38,7 @@ const FuelStats: React.FC<FuelStatsProps> = ({ logs }) => {
   const totalSpent = logs.reduce((acc, curr) => acc + curr.totalCost, 0);
 
   return (
-    <div className="max-w-md mx-auto p-4 space-y-6 pb-24">
+    <div className="max-w-md mx-auto p-4 space-y-6 pb-6">
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-brand-500 text-white p-4 rounded-2xl shadow-lg shadow-brand-500/20">

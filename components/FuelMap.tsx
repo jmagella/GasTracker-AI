@@ -64,7 +64,7 @@ const FuelMap: React.FC<FuelMapProps> = ({ logs }) => {
   }, [logs]); // Re-render when logs change
 
   return (
-    <div className="h-[calc(100vh-140px)] w-full relative z-0">
+    <div className="w-full h-full relative z-0">
       {validLogs.length === 0 && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[400] bg-white/90 px-4 py-2 rounded-full shadow-md text-sm text-gray-600 backdrop-blur-sm">
           No entries with GPS data yet.

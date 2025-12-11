@@ -109,7 +109,7 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog }) => {
   };
 
   return (
-    <div className="max-w-md mx-auto p-4 space-y-6 pb-24">
+    <div className="max-w-md mx-auto p-4 space-y-6 pb-6">
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
         <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white flex items-center gap-2">
           <Scan className="w-5 h-5 text-brand-500" />

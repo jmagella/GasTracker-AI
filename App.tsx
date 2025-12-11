@@ -147,7 +147,7 @@ function App() {
 
   if (isCheckingKey) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="fixed inset-0 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="animate-pulse flex flex-col items-center">
           <div className="w-12 h-12 bg-brand-200 dark:bg-brand-900 rounded-full mb-4"></div>
           <div className="h-4 w-32 bg-gray-200 dark:bg-gray-800 rounded"></div>
@@ -158,7 +158,7 @@ function App() {
 
   if (!isKeySet) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gray-50 dark:bg-gray-900 text-center relative overflow-hidden">
+      <div className="fixed inset-0 h-[100dvh] flex flex-col items-center justify-center p-6 bg-gray-50 dark:bg-gray-900 text-center relative overflow-hidden">
         {/* Background blobs */}
         <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-brand-200 dark:bg-brand-900/20 rounded-full blur-3xl opacity-50 z-0"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-64 h-64 bg-blue-200 dark:bg-blue-900/20 rounded-full blur-3xl opacity-50 z-0"></div>
@@ -227,10 +227,10 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen pb-20 bg-gray-50 dark:bg-gray-900 transition-colors duration-200 relative">
+    <div className="fixed inset-0 h-[100dvh] w-full flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-200 overflow-hidden">
       <Header onOpenSettings={() => setShowSettings(true)} />
       
-      <main className="pt-4 h-full">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden relative w-full pt-4 pb-4">
         {activeTab === Tab.ENTRY && <FuelEntry onAddLog={addLog} />}
         {activeTab === Tab.HISTORY && <FuelHistory logs={logs} onDelete={deleteLog} />}
         {activeTab === Tab.STATS && <FuelStats logs={logs} />}

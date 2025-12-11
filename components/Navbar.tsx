@@ -18,7 +18,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange }) => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 pb-safe shadow-lg z-50">
+    <nav className="w-full bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg z-50 flex-none pb-[env(safe-area-inset-bottom,20px)]">
       <div className="flex justify-around items-center h-16">
         {navItems.map((item) => (
           <button
@@ -40,7 +40,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange }) => {
 };
 
 export const Header: React.FC<{ onOpenSettings: () => void }> = ({ onOpenSettings }) => (
-  <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex justify-between items-center">
+  <header className="flex-none z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex justify-between items-center pt-[max(12px,env(safe-area-inset-top))]">
     <div className="flex items-center gap-2">
       <div className="bg-brand-500 p-1.5 rounded-lg text-white">
         <Fuel size={20} />
