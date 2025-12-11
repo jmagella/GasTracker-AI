@@ -1,0 +1,15 @@
+{
+  "name": "GasTracker AI",
+  "short_name": "GasTracker",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "https://unpkg.com/lucide-static@0.344.0/icons/fuel.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512"
+    }
+  ]
+}

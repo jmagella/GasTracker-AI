@@ -1,0 +1,8 @@
+{
+  "name": "GasTracker AI",
+  "description": "Smart gas mileage tracker using Gemini AI to scan pumps and odometers.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
