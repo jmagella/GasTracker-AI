@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Camera, MapPin, Loader2, Save, Scan, Gauge, Droplet, DollarSign, Receipt } from 'lucide-react';
 import { FuelLog } from '../types';
 import { analyzeImage } from '../services/geminiService';
-import { fileToBase64 } from '../utils';
+import { compressImage } from '../utils';
 
 interface FuelEntryProps {
   onAddLog: (log: Omit<FuelLog, 'id'>) => void;
@@ -32,8 +32,10 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog }) => {
 
     setIsScanning(true);
     try {
-      const base64 = await fileToBase64(file);
-      const result = await analyzeImage(base64, file.type);
+      // Compress image before sending to avoid payload size issues
+      const base64 = await compressImage(file);
+      // We force jpeg mimeType because compressImage outputs jpeg
+      const result = await analyzeImage(base64, 'image/jpeg');
       
       if (result.odometer) setOdometer(result.odometer.toString());
       if (result.gallons) setGallons(result.gallons.toString());
@@ -44,8 +46,10 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog }) => {
       if (result.totalCost && result.gallons && !result.pricePerGallon) {
         setPricePerGallon((result.totalCost / result.gallons).toFixed(3));
       }
-    } catch (error) {
-      alert("Failed to analyze image. Please try again or enter manually.");
+    } catch (error: any) {
+      console.error("Scan failed:", error);
+      const msg = error?.message || "Unknown error";
+      alert(`Failed to analyze image: ${msg}. Please try entering manually.`);
     } finally {
       setIsScanning(false);
       // Reset input so same file can be selected again
