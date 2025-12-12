@@ -83,6 +83,7 @@ const EditModal = ({ log, onClose, onSave }: { log: FuelLog, onClose: () => void
               <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase">Odometer</label>
               <input
                 type="number"
+                inputMode="decimal"
                 value={odometer}
                 onChange={(e) => setOdometer(e.target.value)}
                 className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
@@ -92,6 +93,7 @@ const EditModal = ({ log, onClose, onSave }: { log: FuelLog, onClose: () => void
               <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase">Gallons</label>
               <input
                 type="number"
+                inputMode="decimal"
                 step="0.001"
                 value={gallons}
                 onChange={(e) => setGallons(e.target.value)}
@@ -104,6 +106,7 @@ const EditModal = ({ log, onClose, onSave }: { log: FuelLog, onClose: () => void
               <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase">Total Cost</label>
               <input
                 type="number"
+                inputMode="decimal"
                 step="0.01"
                 value={cost}
                 onChange={(e) => setCost(e.target.value)}
@@ -114,6 +117,7 @@ const EditModal = ({ log, onClose, onSave }: { log: FuelLog, onClose: () => void
               <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase">Price/Gal</label>
               <input
                 type="number"
+                inputMode="decimal"
                 step="0.001"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}

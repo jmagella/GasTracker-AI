@@ -296,6 +296,7 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog, recentLocations }) => {
              </label>
              <input
                type="number"
+               inputMode="decimal"
                step="0.001"
                value={gallons}
                onChange={(e) => setGallons(e.target.value)}
@@ -313,6 +314,7 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog, recentLocations }) => {
              </label>
              <input
                type="number"
+               inputMode="decimal"
                step="0.001"
                value={pricePerGallon}
                onChange={(e) => setPricePerGallon(e.target.value)}
@@ -326,6 +328,7 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog, recentLocations }) => {
              </label>
              <input
                type="number"
+               inputMode="decimal"
                step="0.01"
                value={totalCost}
                onChange={(e) => setTotalCost(e.target.value)}
