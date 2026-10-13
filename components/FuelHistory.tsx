@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Download, Upload, Trash2, MapPin, Edit2, X, Save, Sun, Cloud, CloudRain, Snowflake, CloudLightning, Thermometer } from 'lucide-react';
 import { FuelLog } from '../types';
-import { exportToCSV, calculateMPG, parseCSV } from '../utils';
+import { exportToCSV, computeMpgById, parseCSV } from '../utils';
 
 interface FuelHistoryProps {
   logs: FuelLog[];
@@ -44,6 +44,7 @@ const EditModal = ({ log, onClose, onSave }: { log: FuelLog, onClose: () => void
   const [cost, setCost] = useState(log.totalCost.toString());
   const [price, setPrice] = useState(log.pricePerGallon.toString());
   const [location, setLocation] = useState(log.location || '');
+  const [isFullTank, setIsFullTank] = useState(log.isFullTank !== false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,7 +55,8 @@ const EditModal = ({ log, onClose, onSave }: { log: FuelLog, onClose: () => void
       gallons: parseFloat(gallons),
       totalCost: parseFloat(cost),
       pricePerGallon: parseFloat(price),
-      location: location
+      location: location,
+      isFullTank
     });
   };
 
@@ -135,6 +137,11 @@ const EditModal = ({ log, onClose, onSave }: { log: FuelLog, onClose: () => void
             />
           </div>
 
+          <label className="flex items-center justify-between text-sm font-semibold text-gray-700 dark:text-gray-200">
+            Full Tank
+            <input type="checkbox" checked={isFullTank} onChange={(e) => setIsFullTank(e.target.checked)} className="w-5 h-5" />
+          </label>
+
           <button 
             type="submit"
             className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg shadow-brand-500/30 transition-all flex justify-center items-center gap-2 mt-2"
@@ -150,6 +157,8 @@ const EditModal = ({ log, onClose, onSave }: { log: FuelLog, onClose: () => void
 const FuelHistory: React.FC<FuelHistoryProps> = ({ logs, onDelete, onUpdate, onImport }) => {
   const [editingLog, setEditingLog] = useState<FuelLog | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const mpgById = computeMpgById(logs);
 
   // Sort logs by date descending, then by odometer descending to ensure stability
   const sortedLogs = [...logs].sort((a, b) => {
@@ -221,9 +230,9 @@ const FuelHistory: React.FC<FuelHistoryProps> = ({ logs, onDelete, onUpdate, onI
           </div>
         ) : (
           <div className="space-y-3">
-            {sortedLogs.map((log, index) => {
-               const prevLog = sortedLogs[index + 1];
-               const mpg = prevLog ? calculateMPG(log, prevLog) : null;
+            {sortedLogs.map((log) => {
+               const isPartial = log.isFullTank === false;
+               const mpg = mpgById.get(log.id) ?? null;
                const dateObj = new Date(log.date);
 
                return (
@@ -231,12 +240,19 @@ const FuelHistory: React.FC<FuelHistoryProps> = ({ logs, onDelete, onUpdate, onI
                   
                   {/* Left Side: BIG MPG and Details */}
                   <div className="flex flex-col flex-1 min-w-0 pr-4">
-                    <div className="flex items-baseline gap-1.5 mb-1">
-                      <span className={`text-4xl font-black tracking-tight ${mpg ? 'text-brand-600 dark:text-brand-400' : 'text-gray-300 dark:text-gray-700'}`}>
-                        {mpg ? mpg.toFixed(1) : '-'}
-                      </span>
-                      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">MPG</span>
-                    </div>
+                    {isPartial ? (
+                      <div className="mb-1 text-lg font-bold text-amber-600 dark:text-amber-400 leading-tight">
+                        Partial Fill (Gallons Logged)
+                        <span className="block text-xs font-medium text-gray-400">{log.gallons.toFixed(3)} gal</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-baseline gap-1.5 mb-1">
+                        <span className={`text-4xl font-black tracking-tight ${mpg ? 'text-brand-600 dark:text-brand-400' : 'text-gray-300 dark:text-gray-700'}`}>
+                          {mpg ? mpg.toFixed(1) : '-'}
+                        </span>
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">MPG</span>
+                      </div>
+                    )}
 
                     <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-col gap-0.5 truncate">
                        <div className="flex items-center gap-2 text-gray-800 dark:text-gray-200 font-medium">

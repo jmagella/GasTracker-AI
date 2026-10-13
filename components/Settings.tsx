@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Trash2, Moon, Sun, Key, ShieldCheck, X, Palette, Check } from 'lucide-react';
 import { ThemeColor } from '../types';
+import { SHEETS_URL_KEY, getSheetsUrl } from '../services/sheetsService';
 
 interface SettingsProps {
   onClose: () => void;
@@ -14,6 +15,14 @@ interface SettingsProps {
 const Settings: React.FC<SettingsProps> = ({ onClose, isDarkMode, toggleTheme, onClearData, currentColor, onColorChange }) => {
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
+  const [sheetsUrl, setSheetsUrl] = useState(getSheetsUrl());
+
+  const handleSaveSheetsUrl = () => {
+    const v = sheetsUrl.trim();
+    if (v) localStorage.setItem(SHEETS_URL_KEY, v);
+    else localStorage.removeItem(SHEETS_URL_KEY);
+    alert(v ? 'Google Sheets URL saved.' : 'Google Sheets sync disabled.');
+  };
 
   useEffect(() => {
     const stored = localStorage.getItem('gemini_api_key');
@@ -86,6 +95,27 @@ const Settings: React.FC<SettingsProps> = ({ onClose, isDarkMode, toggleTheme, o
               className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl transition-colors flex justify-center items-center gap-2"
             >
               <Save size={18} /> Save Key
+            </button>
+          </div>
+        </div>
+
+        {/* Google Sheets Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+            <Save className="w-5 h-5 text-brand-500" /> Google Sheets
+          </h3>
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400">Apps Script Web App URL</label>
+            <input
+              type="url"
+              value={sheetsUrl}
+              onChange={(e) => setSheetsUrl(e.target.value)}
+              placeholder="https://script.google.com/macros/s/.../exec"
+              className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none dark:text-white"
+            />
+            <p className="text-xs text-gray-400 dark:text-gray-500">New entries (including the isFullTank flag) are posted here. Leave blank to disable.</p>
+            <button onClick={handleSaveSheetsUrl} className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl transition-colors flex justify-center items-center gap-2">
+              <Save size={18} /> Save URL
             </button>
           </div>
         </div>

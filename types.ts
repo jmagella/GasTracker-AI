@@ -8,6 +8,10 @@ export interface FuelLog {
   location?: string;
   latitude?: number;
   longitude?: number;
+  weatherTemp?: number;
+  weatherCode?: number;
+  /** false = partial top-off. Missing on legacy records, which are treated as full tank. */
+  isFullTank?: boolean;
 }
 
 export interface Coordinates {
