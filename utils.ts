@@ -53,7 +53,7 @@ export const compressImage = (file: File, maxWidth = 1024): Promise<string> => {
 export const exportToCSV = (logs: FuelLog[]) => {
   if (logs.length === 0) return;
 
-  const headers = ['Date', 'Odometer', 'Gallons', 'Price/Gal', 'Total Cost', 'Location', 'Latitude', 'Longitude'];
+  const headers = ['Date', 'Odometer', 'Gallons', 'Price/Gal', 'Total Cost', 'Location', 'Latitude', 'Longitude', 'Full Tank'];
   const csvContent = [
     headers.join(','),
     ...logs.map(log => [
@@ -64,7 +64,8 @@ export const exportToCSV = (logs: FuelLog[]) => {
       log.totalCost,
       `"${log.location || ''}"`,
       log.latitude || '',
-      log.longitude || ''
+      log.longitude || '',
+      log.isFullTank === false ? 'false' : 'true'
     ].join(','))
   ].join('\n');
 
@@ -88,11 +89,25 @@ export const parseCSV = (csvText: string): Omit<FuelLog, 'id'>[] => {
 
   const results: Omit<FuelLog, 'id'>[] = [];
 
-  // Robust split function to handle commas inside quotes
+  // Quote-aware split that preserves empty fields (so column positions stay stable)
   const splitCSVLine = (line: string) => {
-    // Matches fields in quotes OR fields without commas
-    const pattern = /(".*?"|[^",]+)(?=\s*,|\s*$)/g;
-    return line.match(pattern)?.map(v => v.replace(/^"|"$/g, '').trim()) || [];
+    const out: string[] = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; }
+        else inQuotes = !inQuotes;
+      } else if (ch === ',' && !inQuotes) {
+        out.push(cur.trim());
+        cur = '';
+      } else {
+        cur += ch;
+      }
+    }
+    out.push(cur.trim());
+    return out;
   };
 
   // Start from 1 to skip header
@@ -113,13 +128,14 @@ export const parseCSV = (csvText: string): Omit<FuelLog, 'id'>[] => {
     const location = cols[5] || '';
     const latitude = cols[6] ? parseFloat(cols[6]) : undefined;
     const longitude = cols[7] ? parseFloat(cols[7]) : undefined;
+    const isFullTank = (cols[8] || '').toLowerCase() !== 'false';
 
     // Validate numbers
     if (isNaN(odometer) || isNaN(gallons) || isNaN(totalCost)) continue;
     
     // Attempt to parse date, fallback to now if invalid
-    let date = new Date(dateStr).toISOString();
-    if(date === 'Invalid Date') date = new Date().toISOString();
+    const parsedDate = new Date(dateStr);
+    const date = (isNaN(parsedDate.getTime()) ? new Date() : parsedDate).toISOString();
 
     results.push({
       date,
@@ -129,17 +145,86 @@ export const parseCSV = (csvText: string): Omit<FuelLog, 'id'>[] => {
       totalCost,
       location,
       latitude,
-      longitude
+      longitude,
+      isFullTank
     });
   }
   return results;
 };
 
-export const calculateMPG = (current: FuelLog, previous: FuelLog): number | null => {
-  if (current.odometer <= previous.odometer) return null;
-  if (current.gallons <= 0) return null;
-  const distance = current.odometer - previous.odometer;
-  return distance / current.gallons;
+export const MPG_MIN = 5.0;
+export const MPG_MAX = 100.0;
+
+const isFull = (log: FuelLog) => log.isFullTank !== false;
+
+/** Oldest-first ordering used for all MPG math. */
+export const sortLogsAscending = (logs: FuelLog[]): FuelLog[] =>
+  [...logs].sort((a, b) => {
+    const diff = new Date(a.date).getTime() - new Date(b.date).getTime();
+    return diff !== 0 ? diff : a.odometer - b.odometer;
+  });
+
+/**
+ * MPG for the entry at `index` of an oldest-first list.
+ * Partial fills return null. Full fills use the most recent previous full tank as the
+ * baseline: distance = odometer delta, gallons = everything pumped since that baseline
+ * (partials in between, plus this fill).
+ */
+export const calculateMPGAt = (ascLogs: FuelLog[], index: number): number | null => {
+  const current = ascLogs[index];
+  if (!current || !isFull(current)) return null;
+
+  let gallons = current.gallons;
+  for (let i = index - 1; i >= 0; i--) {
+    const prev = ascLogs[i];
+    if (isFull(prev)) {
+      const distance = current.odometer - prev.odometer;
+      if (distance <= 0 || gallons <= 0) return null;
+      return distance / gallons;
+    }
+    gallons += prev.gallons;
+  }
+  return null; // no earlier full tank to measure from
+};
+
+/** MPG per log id (null when not computable or partial). */
+export const computeMpgById = (logs: FuelLog[]): Map<string, number | null> => {
+  const asc = sortLogsAscending(logs);
+  const map = new Map<string, number | null>();
+  asc.forEach((log, i) => map.set(log.id, calculateMPGAt(asc, i)));
+  return map;
+};
+
+export interface EntryValidation {
+  mpg: number | null;
+  odometerIssue: boolean;
+  gallonsIssue: boolean;
+  hasIssue: boolean;
+}
+
+/** Validate a not-yet-saved entry against existing history. */
+export const validateEntry = (
+  existing: FuelLog[],
+  candidate: { odometer: number; gallons: number; isFullTank: boolean; date?: string }
+): EntryValidation => {
+  const asc = sortLogsAscending(existing);
+  const prev = asc[asc.length - 1];
+  const odometerIssue = !!prev && candidate.odometer < prev.odometer;
+
+  const temp: FuelLog = {
+    id: '__candidate__',
+    date: candidate.date || new Date().toISOString(),
+    odometer: candidate.odometer,
+    gallons: candidate.gallons,
+    pricePerGallon: 0,
+    totalCost: 0,
+    isFullTank: candidate.isFullTank
+  };
+  // Candidate is always the newest entry
+  const mpg = calculateMPGAt([...asc, temp], asc.length);
+  const gallonsIssue = mpg !== null && (mpg < MPG_MIN || mpg > MPG_MAX);
+
+  return { mpg, odometerIssue, gallonsIssue, hasIssue: odometerIssue || gallonsIssue };
 };
 
 // Theme Utilities

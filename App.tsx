@@ -7,6 +7,7 @@ import FuelMap from './components/FuelMap';
 import Settings from './components/Settings';
 import { FuelLog, Tab, ThemeColor } from './types';
 import { applyThemeColor } from './utils';
+import { syncLogToSheet } from './services/sheetsService';
 import { Fuel, ArrowRight, Key } from 'lucide-react';
 
 function App() {
@@ -160,6 +161,7 @@ function App() {
       id: crypto.randomUUID()
     };
     setLogs(prev => [...prev, newLog]);
+    syncLogToSheet(newLog);
     setActiveTab(Tab.HISTORY);
   };
 
@@ -314,7 +316,7 @@ function App() {
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        {activeTab === Tab.ENTRY && <FuelEntry onAddLog={addLog} recentLocations={recentLocations} />}
+        {activeTab === Tab.ENTRY && <FuelEntry onAddLog={addLog} recentLocations={recentLocations} logs={logs} />}
         {activeTab === Tab.HISTORY && 
           <FuelHistory 
             logs={logs} 

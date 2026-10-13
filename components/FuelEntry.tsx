@@ -1,21 +1,25 @@
-import React, { useState, useRef, useMemo } from 'react';
-import { Camera, MapPin, Loader2, Save, Scan, Gauge, Droplet, DollarSign, Receipt, AlertTriangle, CheckCircle, RefreshCw, Globe, Crosshair } from 'lucide-react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { Camera, MapPin, Loader2, Save, Scan, Gauge, Droplet, DollarSign, Receipt, AlertTriangle, CheckCircle, RefreshCw, Globe, Crosshair, X } from 'lucide-react';
 import { FuelLog } from '../types';
 import { analyzeImage } from '../services/geminiService';
-import { compressImage } from '../utils';
+import { compressImage, validateEntry } from '../utils';
 
 interface FuelEntryProps {
   onAddLog: (log: Omit<FuelLog, 'id'>) => void;
   recentLocations: string[];
+  logs: FuelLog[];
 }
 
 const DEFAULT_STATIONS = ['Sunoco', 'Stewarts'];
 
-const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog, recentLocations }) => {
+const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog, recentLocations, logs }) => {
   const [odometer, setOdometer] = useState<string>('');
   const [gallons, setGallons] = useState<string>('');
   const [pricePerGallon, setPricePerGallon] = useState<string>('');
   const [totalCost, setTotalCost] = useState<string>('');
+  const [isFullTank, setIsFullTank] = useState<boolean>(true);
+  const [showSummary, setShowSummary] = useState(false);
+  const [acknowledged, setAcknowledged] = useState(false);
   
   // Location state
   const combinedOptions = useMemo(() => {
@@ -145,20 +149,38 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog, recentLocations }) => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const parsedOdometer = parseFloat(odometer.replace(/,/g, ''));
+  const parsedGallons = parseFloat(gallons);
+
+  const validation = useMemo(() => {
+    if (!showSummary) return null;
+    return validateEntry(logs, {
+      odometer: isNaN(parsedOdometer) ? 0 : parsedOdometer,
+      gallons: isNaN(parsedGallons) ? 0 : parsedGallons,
+      isFullTank
+    });
+  }, [showSummary, logs, parsedOdometer, parsedGallons, isFullTank]);
+
+  // Any edit to the flagged values requires a fresh acknowledgement
+  useEffect(() => { setAcknowledged(false); }, [odometer, gallons, isFullTank]);
+
+  // Step 1: validate required fields, then open the summary/confirmation screen
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!odometer || !gallons || !totalCost) {
       alert("Please fill in required fields (Odometer, Gallons, Total Cost)");
       return;
     }
-
-    // Parse odometer, removing commas
-    const parsedOdometer = parseFloat(odometer.replace(/,/g, ''));
-    if (isNaN(parsedOdometer)) {
-        alert("Invalid odometer value");
-        return;
+    if (isNaN(parsedOdometer) || isNaN(parsedGallons) || parsedGallons <= 0) {
+      alert("Invalid odometer or gallons value");
+      return;
     }
+    setShowSummary(true);
+  };
 
+  // Step 2: user confirmed on the summary screen
+  const handleConfirmSave = async () => {
+    if (isSaving) return;
     setIsSaving(true);
 
     const finalLocation = stationType === 'Other' ? customLocation : stationType;
@@ -202,14 +224,15 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog, recentLocations }) => {
     onAddLog({
       date: now.toISOString(),
       odometer: parsedOdometer,
-      gallons: parseFloat(gallons),
+      gallons: parsedGallons,
       pricePerGallon: parseFloat(pricePerGallon) || (parseFloat(totalCost) / parseFloat(gallons)),
       totalCost: parseFloat(totalCost),
       location: finalLocation,
       latitude: finalLat,
       longitude: finalLng,
       weatherTemp,
-      weatherCode
+      weatherCode,
+      isFullTank
     });
 
     // Reset fields
@@ -224,6 +247,8 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog, recentLocations }) => {
     setManualLng('');
     setShowManualCoords(false);
     setScanFeedback(null);
+    setIsFullTank(true);
+    setShowSummary(false);
     setIsSaving(false);
   };
 
@@ -404,17 +429,112 @@ const FuelEntry: React.FC<FuelEntryProps> = ({ onAddLog, recentLocations }) => {
             )}
         </div>
 
+        {/* Full Tank toggle */}
+        <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+          <div>
+            <span className="block font-bold text-gray-700 dark:text-gray-200">Full Tank</span>
+            <span className="block text-xs text-gray-400">Turn off for a partial top-off</span>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={isFullTank}
+            aria-label="Full Tank"
+            onClick={() => setIsFullTank(v => !v)}
+            className={`w-14 h-8 flex items-center rounded-full p-1 transition-colors duration-300 ${isFullTank ? 'bg-brand-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+          >
+            <div className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-300 ${isFullTank ? 'translate-x-6' : 'translate-x-0'}`} />
+          </button>
+        </div>
+
         <div className="flex-1"></div>
 
         <button
           type="submit"
-          disabled={isSaving}
           className="w-full py-4 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xl rounded-xl shadow-lg shadow-brand-500/30 transition-all flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
         >
-          {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
-          {isSaving ? 'Saving...' : 'Save Entry'}
+          <Save className="w-6 h-6" />
+          Review Entry
         </button>
       </form>
+
+      {showSummary && validation && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-700 flex flex-col max-h-[90vh]">
+            <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+              <h3 className="font-bold text-lg text-gray-800 dark:text-white">Confirm Entry</h3>
+              <button onClick={() => setShowSummary(false)} disabled={isSaving} aria-label="Close" className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4 overflow-y-auto">
+              {validation.hasIssue && (
+                <div role="alert" className="p-3 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-300 dark:border-orange-700 text-orange-800 dark:text-orange-300 text-sm flex items-start gap-2">
+                  <AlertTriangle className="w-5 h-5 shrink-0" />
+                  <span>Unusual data detected. Please verify your odometer or gallons.</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase">Odometer</label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={odometer}
+                    onChange={handleOdometerChange}
+                    aria-invalid={validation.odometerIssue}
+                    className={`w-full p-3 text-lg rounded-xl outline-none focus:ring-2 dark:text-white ${validation.odometerIssue ? 'bg-red-50 dark:bg-red-900/20 border-2 border-red-500 focus:ring-red-500' : 'bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:ring-brand-500'}`}
+                  />
+                  {validation.odometerIssue && <p className="text-xs text-red-600 mt-1">Lower than previous entry</p>}
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase">Gallons</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.001"
+                    value={gallons}
+                    onChange={(e) => setGallons(e.target.value)}
+                    aria-invalid={validation.gallonsIssue}
+                    className={`w-full p-3 text-lg rounded-xl outline-none focus:ring-2 dark:text-white ${validation.gallonsIssue ? 'bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-500 focus:ring-orange-500' : 'bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:ring-brand-500'}`}
+                  />
+                  {validation.gallonsIssue && <p className="text-xs text-orange-600 mt-1">MPG out of range</p>}
+                </div>
+              </div>
+
+              <div className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
+                <div className="flex justify-between"><span>Type</span><span className="font-semibold">{isFullTank ? 'Full Tank' : 'Partial Fill'}</span></div>
+                <div className="flex justify-between"><span>Total cost</span><span className="font-semibold">${(parseFloat(totalCost) || 0).toFixed(2)}</span></div>
+                <div className="flex justify-between">
+                  <span>MPG</span>
+                  <span className={`font-semibold ${validation.gallonsIssue ? 'text-orange-600' : ''}`}>
+                    {!isFullTank ? 'Partial Fill (Gallons Logged)' : validation.mpg !== null ? validation.mpg.toFixed(1) : '—'}
+                  </span>
+                </div>
+              </div>
+
+              {validation.hasIssue && (
+                <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-200">
+                  <input type="checkbox" checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} className="mt-1" />
+                  <span>These values are correct, save anyway</span>
+                </label>
+              )}
+
+              <button
+                type="button"
+                onClick={handleConfirmSave}
+                disabled={isSaving || (validation.hasIssue && !acknowledged)}
+                className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg shadow-brand-500/30 transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

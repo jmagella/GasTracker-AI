@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts';
 import { FuelLog } from '../types';
-import { calculateMPG } from '../utils';
+import { computeMpgById } from '../utils';
 import { TrendingUp, Wallet, Activity } from 'lucide-react';
 
 interface FuelStatsProps {
@@ -20,9 +20,9 @@ const FuelStats: React.FC<FuelStatsProps> = ({ logs }) => {
   }, [logs]);
 
   const chartData = useMemo(() => {
-    return sortedLogs.map((log, index) => {
-      const prevLog = index > 0 ? sortedLogs[index - 1] : null;
-      const mpg = prevLog ? calculateMPG(log, prevLog) : null;
+    const mpgById = computeMpgById(sortedLogs);
+    return sortedLogs.map((log) => {
+      const mpg = mpgById.get(log.id) ?? null;
       
       return {
         date: new Date(log.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
@@ -30,7 +30,7 @@ const FuelStats: React.FC<FuelStatsProps> = ({ logs }) => {
         cost: log.totalCost,
         price: log.pricePerGallon
       };
-    }).filter(d => d.mpg !== null); // Remove first entry which has no MPG
+    }).filter(d => d.mpg !== null); // Remove entries with no MPG (first fill, partial fills)
   }, [sortedLogs]);
 
   if (logs.length < 2) {
@@ -41,7 +41,7 @@ const FuelStats: React.FC<FuelStatsProps> = ({ logs }) => {
     );
   }
 
-  const avgMpg = chartData.reduce((acc, curr) => acc + (curr.mpg || 0), 0) / chartData.length;
+  const avgMpg = chartData.length > 0 ? chartData.reduce((acc, curr) => acc + (curr.mpg || 0), 0) / chartData.length : 0;
   
   // Cost per Mile Calculation
   // Total Cost / Total Miles (Max Odometer - Min Odometer)
